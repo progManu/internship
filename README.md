@@ -3,6 +3,18 @@
 Welcome to the Internship Experiments repository! This repository contains various experiments and projects conducted during the internship program.
 
 ## Table of Contents
+- *Experiment 1*: ...
+- *Experiment 2*: The idea behind the experiment 2 is to test how much the invariance forced by a global pooling affects the data separation ability of a neural network. In our case we created a toy dataset with 2 classes (A: low-high, B: high-low); the idea is that we want also to know if these classes are placed on the right or the left of array (imagine a picture with one row of pixels). What we would expect is that with different experimental setting (mainly adding and removing the **Global Pooling** operation) the performaces should change drastically.
+    - **phase 1**: train a simple NN with one conv layer and one FC layer
+    - **phase 2**: take the trained conv layer and apply a global pooling in order to get one value; dicretize the ranges and try to use it to classify
+    - **phase 3**: take the trained conv layer use the global pooling in order to reduce the number of values after the convolution to 2 (basically two classes) but leave 4 outputs in the FC layer
+    - **phase 4**: train another NN with the global pooling with 2 outputs and and 2 FC outputs and test the separablity (used K-means)
+    - **phase 5**: train another NN with the global pooling with 1 output and and 2 FC outputs and test the separablity (used K-means)
+    - **phase 6**: train another NN with the global pooling with 1 output and and 4 FC outputs and test the separablity (used K-means)
+
+    *Result*: what I think is happening is that when the data erased from the global pooling is comparable to the intrinsic dimension of the data we have a huge loss of information as we can see from phase 5 and 6
+
+
 - [Contributing](https://github.com/progManu)
 ## Project structure
 

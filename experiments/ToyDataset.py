@@ -5,19 +5,21 @@ from scipy.linalg import circulant
 import matplotlib.pyplot as plt
 
 class ToyDataset(TensorDataset):
-    def __init__(self, noise_level: np.uint8, class_values: tuple, input_size: int, inter_class_size: int):
+    def __init__(self, noise_level: np.uint8, class_values: tuple, input_size: int, inter_class_size: int, binary=False):
 
         if len(class_values) != 2:
             raise ValueError("Maximum 2 classes")
         else:
             self.class_values = class_values
         
-        template_a_class, template_b_class = self.create_class_input_templates(input_size=input_size) # creation of the template without noise
+        self.input_size = input_size
+        
+        template_a_class, template_b_class = self.create_class_input_templates(input_size=self.input_size) # creation of the template without noise
         
         self.template_a = template_a_class
         self.template_b = template_b_class
 
-        dataset, labels = self.create_noised_samples(template_a_class=template_a_class, template_b_class=template_b_class, noise_level=noise_level, inter_class_size=inter_class_size) # creation of 2 class dataset with interclass noise
+        dataset, labels = self.create_noised_samples(template_a_class=template_a_class, template_b_class=template_b_class, noise_level=noise_level, inter_class_size=inter_class_size, binary=binary) # creation of 2 class dataset with interclass noise
 
         reshape_dataset = dataset.reshape(dataset.shape[0], -1, dataset.shape[1]) # reshape in order to use it in TensorDataset
         reshape_labels = labels
@@ -27,12 +29,20 @@ class ToyDataset(TensorDataset):
         inps = torch.tensor(reshape_dataset, dtype=torch.float32)
         tgts = torch.tensor(reshape_labels, dtype=torch.uint8)
 
-        self.label_map = {
-            0: 'sx high-low',
-            1: 'dx high-low',
-            2: 'sx low-high',
-            3: 'dx low-high'
-        }
+        self.label_map = None
+
+        if not binary:
+            self.label_map = {
+                0: ['A-left', 'sx high-low'],
+                1: ['A-right', 'dx high-low'],
+                2: ['B-left', 'sx low-high'],
+                3: ['B-right', 'dx low-high']
+            }
+        else:
+            self.label_map = {
+                0: ['A', 'high-low'],
+                1: ['B', 'low-high']
+            }
 
         super().__init__(inps, tgts)
 
@@ -41,14 +51,19 @@ class ToyDataset(TensorDataset):
         delta_matrix = delta*np.ones_like(input)
         return input + delta_matrix
     
-    def create_noised_samples(self, template_a_class: np.array, template_b_class: np.array, noise_level: np.uint8, inter_class_size: int) -> tuple:
+    def create_noised_samples(self, template_a_class: np.array, template_b_class: np.array, noise_level: np.uint8, inter_class_size: int, binary: bool) -> tuple:
 
         a_samples = template_a_class
         b_samples = template_b_class
 
         half_samples = int(a_samples.shape[0]/2) # left samples counter
 
-        input_labels = np.hstack((np.zeros(half_samples), np.ones(half_samples)))
+        input_labels = None
+
+        if not binary:
+            input_labels = np.hstack((np.zeros(half_samples), np.ones(half_samples))) # 4 classes
+        else:
+             input_labels = np.zeros(a_samples.shape[0]) # 2 classes
 
         a_labels = input_labels
 
@@ -57,7 +72,12 @@ class ToyDataset(TensorDataset):
             a_labels = np.hstack((a_labels, input_labels))
             b_samples = np.vstack((b_samples, self.add_noise(input=template_b_class, max_delta=noise_level)))
 
-        b_labels = a_labels + 2
+        b_labels = None
+
+        if not binary:
+            b_labels = a_labels + 2 # 4 classes
+        else:
+            b_labels = a_labels + 1 # 2 classes
 
         dataset = np.vstack((a_samples, b_samples))
         labels = np.hstack((a_labels, b_labels))
@@ -88,17 +108,23 @@ class ToyDataset(TensorDataset):
     
         fig, axes = plt.subplots(1, 2, figsize=(15, 7))
 
-        axes[0].imshow(self.template_a, cmap='hot')
+        pos1 = axes[0].imshow(self.template_a, cmap='hot')
         axes[0].set_title("A Template")
         axes[0].axis('off')
 
-        axes[1].imshow(self.template_b, cmap='hot')
+        pos2 = axes[1].imshow(self.template_b, cmap='hot')
         axes[1].set_title("B Template")
         axes[1].axis('off')
 
+        # Create an invisible axis to which the colorbar will be attached
+        cax = fig.add_axes([0.25, 0.01, 0.5, 0.03])  # [left, bottom, width, height]
+    
+        # Add colorbar for the whole figure
+        plt.colorbar(pos1, cax=cax, orientation='horizontal')
+
         plt.show()
     
-    def show_label_map(self):
+    def show_label_map(self, binary=False):
         for key, value in self.label_map.items():
             print(f'tag: {key}, class: {value}')
 
