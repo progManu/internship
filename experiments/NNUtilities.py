@@ -7,6 +7,11 @@ from sklearn.cluster import KMeans
 import numpy as np
 import matplotlib.colors as mcolors
 
+def get_cmap(n, name='hsv'):
+    '''Returns a function that maps each index in 0, 1, ..., n-1 to a distinct 
+    RGB color; the keyword argument name must be a standard mpl colormap name.'''
+    return plt.cm.get_cmap(name, n)
+
 def get_accuracy(model, dataloader):
     model.eval()
     with torch.no_grad():
@@ -82,11 +87,11 @@ def plot_clusters(data, n_clusters, figsize=None):
     else:
         fig, axes = plt.subplots(1, 1, figsize=figsize)
     
-    colors = list(mcolors.CSS4_COLORS.keys())
+    colors = get_cmap(n=n_clusters)
     
     #plotting the results:
     for i in u_labels:
-        color = colors[i]
+        color = colors(i)
         axes.scatter(df[label == i , 0] , df[label == i , 1] , label = i, color=color)
     axes.legend()
     fig.show()
@@ -114,11 +119,11 @@ def plot3D_clusters(data, n_clusters, figsize=None):
     # Add a 3D subplot
     axes = fig.add_subplot(111, projection='3d')
     
-    colors = list(mcolors.CSS4_COLORS.keys())
+    colors = get_cmap(n=n_clusters)
     
     # Plotting the results
     for i in u_labels:
-        color = colors[i]
+        color = colors(i)
         axes.scatter(df[label == i, 0], df[label == i, 1], df[label == i, 2], label=i, color=color)
     
     axes.legend()
