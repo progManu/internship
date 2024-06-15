@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 import numpy as np
+import matplotlib.colors as mcolors
 
 def get_accuracy(model, dataloader):
     model.eval()
@@ -61,7 +62,7 @@ def set_requires_grad(m, requires_grad):
     if hasattr(m, 'bias') and m.bias is not None:
         m.bias.requires_grad_(requires_grad)
 
-def plot_clusters(data, n_clusters):
+def plot_clusters(data, n_clusters, figsize=None):
     pca = PCA(2)
     
     #Transform the data
@@ -75,9 +76,50 @@ def plot_clusters(data, n_clusters):
     
     #Getting unique labels
     u_labels = np.unique(label)
+
+    if figsize is None:
+        fig, axes = plt.subplots(1, 1)
+    else:
+        fig, axes = plt.subplots(1, 1, figsize=figsize)
+    
+    colors = list(mcolors.CSS4_COLORS.keys())
     
     #plotting the results:
     for i in u_labels:
-        plt.scatter(df[label == i , 0] , df[label == i , 1] , label = i)
-    plt.legend()
+        color = colors[i]
+        axes.scatter(df[label == i , 0] , df[label == i , 1] , label = i, color=color)
+    axes.legend()
+    fig.show()
+
+def plot3D_clusters(data, n_clusters, figsize=None):
+    pca = PCA(3)  # Reduce to 3 components for 3D plotting
+    
+    # Transform the data
+    df = pca.fit_transform(data)
+    
+    # Initialize the class object
+    kmeans = KMeans(n_clusters=n_clusters)
+    
+    # Predict the labels of clusters
+    label = kmeans.fit_predict(df)
+    
+    # Getting unique labels
+    u_labels = np.unique(label)
+
+    if figsize is None:
+        fig = plt.figure()
+    else:
+        fig = plt.figure(figsize=figsize)
+    
+    # Add a 3D subplot
+    axes = fig.add_subplot(111, projection='3d')
+    
+    colors = list(mcolors.CSS4_COLORS.keys())
+    
+    # Plotting the results
+    for i in u_labels:
+        color = colors[i]
+        axes.scatter(df[label == i, 0], df[label == i, 1], df[label == i, 2], label=i, color=color)
+    
+    axes.legend()
     plt.show()

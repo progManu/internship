@@ -24,7 +24,7 @@ class Experiment2:
 
         self.loss = None
         self.test_accuracy = None
-
+        
         self.label_map = label_map
     
     def run(self, re_train=True):
