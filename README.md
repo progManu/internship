@@ -16,9 +16,10 @@ Welcome to the Internship Experiments repository! This repository contains vario
 
 - *Experiment 2.1*: This is a revision of the experiment 2 with just the phase 1 and 6 architectures and adding the possibility to use AvgPool
     - **phase 1**: train a simple NN with one conv layer and one FC layer
-    - **phase 2**: 
-    - **phase 3**:
-    - **phase 4**:
+    - **phase 2**: train head of above NN with the global pooling with 1 output and and 4 FC outputs
+    - **phase 3**: train head of above NN with the avg pooling with 1 output and and 4 FC outputs
+    - **phase 4**: train another NN with the global pooling with 1 output and and 4 FC outputs
+    - **phase 5**: train another NN with the avg pooling with 1 output and and 4 FC outputs
 
 - [Contributing](https://github.com/progManu)
 ## Project structure
