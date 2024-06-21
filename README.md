@@ -14,6 +14,11 @@ Welcome to the Internship Experiments repository! This repository contains vario
 
     *Result*: what I think is happening is that when the data erased from the global pooling is comparable to the intrinsic dimension of the data we have a huge loss of information as we can see from phase 5 and 6
 
+- *Experiment 2.1*: This is a revision of the experiment 2 with just the phase 1 and 6 architectures and adding the possibility to use AvgPool
+    - **phase 1**: train a simple NN with one conv layer and one FC layer
+    - **phase 2**: 
+    - **phase 3**:
+    - **phase 4**:
 
 - [Contributing](https://github.com/progManu)
 ## Project structure

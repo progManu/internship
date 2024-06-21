@@ -1,11 +1,20 @@
 import torch
+import os
+import sys
+
+# Get the parent directory path
+parent_dir = os.path.abspath('..')
+
+# Add the parent directory to sys.path
+sys.path.append(parent_dir)
+
 from NNUtilities import *
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
 BATCH_SIZE = 64
 
-class Experiment2:
-    def __init__(self, trainloader, testloader, label_map, model=None, lr=1e-2, epochs=100):
+class Experiment2rev1:
+    def __init__(self, trainloader, testloader, model=None, lr=1e-2, epochs=100):
 
         self.trainloader = trainloader
         self.testloader = testloader
@@ -25,7 +34,22 @@ class Experiment2:
         self.loss = None
         self.test_accuracy = None
         
-        self.label_map = label_map
+        self.label_map = [
+            {
+                0: 'A-left',
+                1: 'A-right',
+                2: 'B-left',
+                3: 'B-right'
+            },
+            {
+                0: 'A',
+                1: 'B'
+            },
+            {
+                0: 'left',
+                1: 'right'
+            }
+        ]
     
     def run(self, re_train=True):
         if re_train:
@@ -38,12 +62,35 @@ class Experiment2:
         
         test_labels_model, test_predictions_model = self.model.get_labels_and_predictions(dataloader=self.testloader)
 
-        test_labels_model = [(lambda x: self.label_map[x][0])(x) for x in test_labels_model]
-        test_predictions_model = [(lambda x: self.label_map[x][0])(x) for x in test_predictions_model]
+        test_labels_model1 = [(lambda x: self.label_map[0][x])(x) for x in test_labels_model] # 4 CLASSES LABELS [A-L A-R B-L B-R]
+        test_predictions_model1 = [(lambda x: self.label_map[0][x])(x) for x in test_predictions_model]
 
-        cf_matrix = confusion_matrix(test_labels_model, test_predictions_model, labels=[self.label_map[i][0] for i in range(len(self.label_map.keys()))])
-        disp = ConfusionMatrixDisplay(confusion_matrix=cf_matrix, display_labels=[self.label_map[i][0] for i in range(len(self.label_map.keys()))])
-        disp.plot()
+        test_labels_model2 = [(lambda x: self.label_map[1][x])(x//2) for x in test_labels_model] # 2 CLASS LABELS [A B]
+        test_predictions_model2 = [(lambda x: self.label_map[1][x])(x//2) for x in test_predictions_model]
+
+        test_labels_model3 = [(lambda x: self.label_map[2][x])(x % 2) for x in test_labels_model] # 2 CLASS LABELS [left right]
+        test_predictions_model3 = [(lambda x: self.label_map[2][x])(x % 2) for x in test_predictions_model]
+
+        cm1 = confusion_matrix(test_labels_model1, test_predictions_model1, labels=[self.label_map[0][i] for i in range(len(self.label_map[0].keys()))])
+
+        cm2 = confusion_matrix(test_labels_model2, test_predictions_model2, labels=[self.label_map[1][i] for i in range(len(self.label_map[1].keys()))])
+
+        cm3 = confusion_matrix(test_labels_model3, test_predictions_model3, labels=[self.label_map[2][i] for i in range(len(self.label_map[2].keys()))])
+
+        # Create subplots
+        fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+
+        # Display confusion matrices
+        ConfusionMatrixDisplay(confusion_matrix=cm1, display_labels=[self.label_map[0][i] for i in range(len(self.label_map[0].keys()))]).plot(ax=axes[0])
+        axes[0].set_title('Class-Position confusion matrix')
+
+        ConfusionMatrixDisplay(confusion_matrix=cm2, display_labels=[self.label_map[1][i] for i in range(len(self.label_map[1].keys()))]).plot(ax=axes[1])
+        axes[1].set_title('Class confusion matrix')
+
+        ConfusionMatrixDisplay(confusion_matrix=cm3, display_labels=[self.label_map[2][i] for i in range(len(self.label_map[2].keys()))]).plot(ax=axes[2])
+        axes[2].set_title('Position confusion matrix')
+
+        plt.tight_layout()
         plt.show()
 
 class SimpleArchitecture(torch.nn.Module):
@@ -76,92 +123,19 @@ class SimpleArchitecture(torch.nn.Module):
                 labels[i*BATCH_SIZE:(i+1)*BATCH_SIZE] = y
         return labels.tolist(), predictions.tolist()
 
-class SimpleConvWithPooling(torch.nn.Module):
-    def __init__(self, filter_size, input_size, dataloader_for_ranges):
-        super().__init__()
-    
-        self.conv = torch.nn.Sequential(
-            torch.nn.Conv1d(in_channels=1, out_channels=1, kernel_size=filter_size),
-            torch.nn.ReLU(),
-            torch.nn.MaxPool1d(input_size - filter_size + 1)
-        )
-
-        self.ranges = self.get_ranges(dataloader_for_ranges)
-        
-        
-    def forward(self, x):
-        with torch.no_grad():
-            x = self.conv(x)
-            x.apply_(lambda input: self.from_ranges_to_output(input=input))
-            x = x.type(torch.uint8)
-            return x
-    
-    def get_labels_and_predictions(self, dataloader):
-        self.eval()
-
-        predictions = torch.empty(len(dataloader.dataset), dtype=torch.uint8)
-        y_test = torch.empty(len(dataloader.dataset), dtype=torch.uint8)
-
-        with torch.no_grad():
-            for i, (x, y) in enumerate(dataloader):
-                out = self(x).flatten()
-                predictions[i*BATCH_SIZE:(i+1)*BATCH_SIZE] = out
-                y_test[i*BATCH_SIZE:(i+1)*BATCH_SIZE] = y
-        
-        return y_test.tolist(), predictions.tolist()
-    
-    def get_ranges(self, dataloader):
-        self.eval()
-
-        regression_output = {}
-
-        for i in range(4):
-            regression_output[i] = []
-
-        with torch.no_grad():
-            for i, (x, y) in enumerate(dataloader):
-                preds = self.conv(x).flatten()
-                labels = y
-                for pred, label in zip(preds.tolist(), labels):
-                    label = int(label)
-                    regression_output[label].append(pred)
-        
-        ranges_output = {}
-
-        for i in range(4):
-            ranges_output[i] = (min(regression_output[i]), max(regression_output[i]))
-        
-        return ranges_output
-    
-    def from_ranges_to_output(self, input):
-        for i, range in self.ranges.items():
-            if input >= range[0] and input <= range[1]:
-                return int(i)
-        
-        distances = np.empty(((2*4, 2)))
-
-        for i, range in self.ranges.items():
-
-            distances[2*i][0] = int(i)
-            distances[2*i + 1][0] = int(i)
-
-            distances[2*i][1] = (input**2 + range[0])**0.5
-            distances[2*i + 1][1] = (input**2 + range[1])**0.5
-        
-        label_with_min_dist = distances[np.argmin(distances[:, 1]), 0]
-
-        return label_with_min_dist
-
 class SimpleArchitectureWithPooling(torch.nn.Module):
-    def __init__(self, filter_size, max_pool_size, input_size, fc_output_size=4):
+    def __init__(self, filter_size, pooling, max_pool_size, input_size, fc_output_size=4):
         super().__init__()
 
         self.fc_output_size = fc_output_size
+
+        if pooling is None:
+            pooling = torch.nn.MaxPool1d
     
         self.conv = torch.nn.Sequential(
             torch.nn.Conv1d(in_channels=1, out_channels=1, kernel_size=filter_size),
             torch.nn.ReLU(),
-            torch.nn.MaxPool1d(max_pool_size),
+            pooling(max_pool_size),
             torch.nn.ReLU()
         )
         self.head = torch.nn.Linear(int((input_size - filter_size + 1)/max_pool_size), self.fc_output_size)
