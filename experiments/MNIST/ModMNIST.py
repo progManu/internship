@@ -71,6 +71,8 @@ class ModMNIST(Dataset):
         
         return train_images, train_labels, test_images, test_labels
     
+    '''
+    
     def process_data(self, trainingdata, labeldata):
 
         transform = v2.Resize(size = (14,14))
@@ -93,6 +95,38 @@ class ModMNIST(Dataset):
             new_label_data[4*i + 1] = 4*labeldata[i] + 1 # 1 is the top-right corner
             new_label_data[4*i + 2] = 4*labeldata[i] + 2 # 2 is the bottom-left corner
             new_label_data[4*i + 3] = 4*labeldata[i] + 3 # 3 is the bottom-right corner
+        
+        return new_train_data, new_label_data
+    
+    '''
+    
+    def process_data(self, trainingdata, labeldata):
+
+        transform = v2.Resize(size = (14,14))
+        
+        size, _, nrows, ncols = trainingdata.size()
+
+        offset = [0, 4, 8, 14]
+
+        positions = int(len(offset)**2)
+
+        new_train_data = torch.zeros(positions*size, 1, nrows, ncols, dtype=torch.uint8)
+        new_label_data = torch.zeros(positions*size, dtype=torch.uint8)
+
+        
+
+        for i in range(size):
+            original_image = trainingdata[i, :, :, :]
+            resized_image = transform(original_image)
+
+            cont = 0
+
+            for j in offset:
+                for k in offset:
+                    new_train_data[positions*i + cont, :, j:j+14, k:k+14] = resized_image
+                    new_label_data[positions*i + cont] = positions*labeldata[i] + cont
+
+                    cont = cont + 1
         
         return new_train_data, new_label_data
 
