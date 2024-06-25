@@ -8,7 +8,7 @@ from torchvision.transforms import v2
 
 
 class ModMNIST(Dataset):
-    def __init__(self, root='./data/', transform=None, target_transform=None, train=True):
+    def __init__(self, root='./data/', transform=None, target_transform=None, train=True, offset=None, filt_labels=None):
 
         self.root = root
 
@@ -19,6 +19,13 @@ class ModMNIST(Dataset):
         self.dataset = None
         self.labels = None
 
+        if offset is None:
+            self.offset = [0, 14]
+        else:
+            self.offset = offset
+
+        self.filt_labels = filt_labels
+
         fileends = ['train-images.idx3-ubyte',
                 'train-labels.idx1-ubyte',
                 't10k-images.idx3-ubyte',
@@ -27,6 +34,9 @@ class ModMNIST(Dataset):
         self.filenames = [os.path.join(self.root, fileend) for fileend in fileends]
 
         train_images, train_labels, test_images, test_labels = self.parse_dataset_in_tensor()
+
+        if self.filt_labels is not None:
+            train_images, train_labels, test_images, test_labels = self.filter_tensors(train_images, train_labels, test_images, test_labels, self.filt_labels)
 
         if train:
             self.dataset, self.labels = self.process_data(train_images, train_labels)
@@ -41,6 +51,27 @@ class ModMNIST(Dataset):
         ])
 
         self.dataset = normal_transform(self.dataset)
+    
+    def filter_tensors(self, train_images, train_labels, test_images, test_labels, filt_labels):
+        filt_labels = sorted(filt_labels)
+
+        filt_train_images = train_images[train_labels == filt_labels[0]]
+        filt_train_labels = train_labels[train_labels == filt_labels[0]]
+        filt_test_images = test_images[test_labels == filt_labels[0]]
+        filt_test_labels = test_labels[test_labels == filt_labels[0]]
+
+        for i in range(1, len(filt_labels)):
+            lab = filt_labels[i]
+
+            train_mask =  train_labels == lab
+            test_mask = test_labels == lab
+
+            filt_train_images = torch.vstack((filt_train_images, train_images[train_mask]))
+            filt_train_labels = torch.hstack((filt_train_labels, train_labels[train_mask]))
+            filt_test_images = torch.vstack((filt_test_images, test_images[test_mask]))
+            filt_test_labels = torch.hstack((filt_test_labels, test_labels[test_mask]))
+        
+        return filt_train_images, filt_train_labels, filt_test_images, filt_test_labels
 
 
     
@@ -71,49 +102,16 @@ class ModMNIST(Dataset):
         
         return train_images, train_labels, test_images, test_labels
     
-    '''
-    
     def process_data(self, trainingdata, labeldata):
 
         transform = v2.Resize(size = (14,14))
         
         size, _, nrows, ncols = trainingdata.size()
 
-        new_train_data = torch.zeros(4*size, 1, nrows, ncols, dtype=torch.uint8)
-        new_label_data = torch.zeros(4*size, dtype=torch.uint8)
-
-        for i in range(size):
-            original_image = trainingdata[i, :, :, :]
-            resized_image = transform(original_image)
-            
-            new_train_data[4*i + 0, :, 0:14, 0:14] = resized_image
-            new_train_data[4*i + 1, :, 14:28, 0:14] = resized_image
-            new_train_data[4*i + 2, :, 0:14, 14:28] = resized_image
-            new_train_data[4*i + 3, :, 14:28, 14:28] = resized_image
-
-            new_label_data[4*i + 0] = 4*labeldata[i] + 0 # 0 is the top-left corner
-            new_label_data[4*i + 1] = 4*labeldata[i] + 1 # 1 is the top-right corner
-            new_label_data[4*i + 2] = 4*labeldata[i] + 2 # 2 is the bottom-left corner
-            new_label_data[4*i + 3] = 4*labeldata[i] + 3 # 3 is the bottom-right corner
-        
-        return new_train_data, new_label_data
-    
-    '''
-    
-    def process_data(self, trainingdata, labeldata):
-
-        transform = v2.Resize(size = (14,14))
-        
-        size, _, nrows, ncols = trainingdata.size()
-
-        offset = [0, 4, 8, 14]
-
-        positions = int(len(offset)**2)
+        positions = int(len(self.offset)**2)
 
         new_train_data = torch.zeros(positions*size, 1, nrows, ncols, dtype=torch.uint8)
         new_label_data = torch.zeros(positions*size, dtype=torch.uint8)
-
-        
 
         for i in range(size):
             original_image = trainingdata[i, :, :, :]
@@ -121,8 +119,8 @@ class ModMNIST(Dataset):
 
             cont = 0
 
-            for j in offset:
-                for k in offset:
+            for j in self.offset:
+                for k in self.offset:
                     new_train_data[positions*i + cont, :, j:j+14, k:k+14] = resized_image
                     new_label_data[positions*i + cont] = positions*labeldata[i] + cont
 
