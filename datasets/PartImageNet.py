@@ -1,10 +1,10 @@
 
-from PartImageNetPreprocess import *
+from PINOtherPre import *
 from torch.utils.data import Dataset
 import matplotlib.pyplot as plt
 import numpy as np
 
-class PartImageNet(PartImageNetPreprocess, Dataset):
+class PartImageNet(PINOtherPre, Dataset):
     
     def __init__(self, root_folder='.', transform=None, target_transform=None, filter_labels=None):
         super().__init__(root_folder)
@@ -15,7 +15,7 @@ class PartImageNet(PartImageNetPreprocess, Dataset):
 
         self.threshold = None
 
-        self.remove_unworth_labels() # remove unworth classes (so classes with very few images)
+        # self.remove_unworth_labels() # remove unworth classes (so classes with very few images)
 
         filtered_labels = [] # remove classes that I don't want (I can just filter those)
         if filter_labels is not None:
@@ -81,6 +81,24 @@ class PartImageNet(PartImageNetPreprocess, Dataset):
         filt_list = [ann for ann in self.annot if ann['label'] not in idxs_to_remove]
 
         self.annot = filt_list
+    
+    def get_mean_and_std(self):
+        vec_img_size = int(self.max_img_size**2)
+        full_colors = torch.empty(3, len(self)*vec_img_size)
+        for i, ann in enumerate(self.annot):
+            file_name = ann['img_name']
+            folder = ann['folder']
+            img_path = os.path.join(self.images_path, folder, file_name + '.JPEG')
+
+            image = read_image(img_path) if self.transform is None else self.transform(read_image(img_path)) # here is the error
+
+            image = image.flatten(start_dim=1)
+
+            full_colors[:, i*vec_img_size:(i+1)*vec_img_size] = image
+        
+        return full_colors.mean(axis=1), full_colors.std(axis=1)
+
+
 
     
     def plot_labels_hist(self):

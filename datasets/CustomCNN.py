@@ -3,6 +3,7 @@ from sklearn.model_selection import KFold
 import os
 import sys
 from tqdm import tqdm
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
 # Get the parent directory path
 parent_dir = os.path.abspath('..\\experiments')
@@ -11,6 +12,8 @@ parent_dir = os.path.abspath('..\\experiments')
 sys.path.append(parent_dir)
 
 from NNUtilities import *
+
+device = torch.device('cuda')
 
 def conv_output(input_size, kernel_size, stride_size, padding_size):
     out_size = int(((input_size + (2*padding_size) - kernel_size) / stride_size) + 1)
@@ -40,6 +43,8 @@ def get_accuracy(model, dataloader):
     with torch.no_grad():
         correct = 0
         for x, _, y in iter(dataloader):
+            x = x.to(device)
+            y = y.to(device)
             out = model(x)
             correct += (torch.argmax(out, axis=1) == y).sum()
         return float(correct/len(dataloader.dataset))
@@ -53,6 +58,8 @@ def train(model, optimizer, trainloader, testloader, lossfunc, epochs=10):
         test_accuracy.append(get_accuracy(model, testloader))
         model.train()
         for x, _, y in iter(trainloader):
+            x = x.to(device)
+            y = y.to(device)
             out = model(x)
             l = lossfunc(out, y)
             losses_per_epoch.append(l)
@@ -63,6 +70,39 @@ def train(model, optimizer, trainloader, testloader, lossfunc, epochs=10):
     
     return (loss, test_accuracy)
 
+def get_labels_and_predictions(model, dataloader):
+        batch_size = dataloader.batch_size
+        model.eval()
+        predictions = torch.empty(len(dataloader.dataset), dtype=torch.uint8)
+        labels = torch.empty(len(dataloader.dataset), dtype=torch.uint8)
+        with torch.no_grad():
+            for i, (x, _, y) in enumerate(dataloader):
+                x = x.to(device)
+                y = y.to(device)
+
+                # num = min(batch_size, len(dataloader) - i*batch_size)
+
+                out = model(x)
+                out = torch.argmax(out, axis=1)
+                predictions[i*batch_size:(i+1)*batch_size] = out
+                labels[i*batch_size:(i+1)*batch_size] = y
+        return labels.tolist(), predictions.tolist()
+
+def print_confusion_matrix(model, dataloader):
+        test_labels_model, test_predictions_model = get_labels_and_predictions(model, dataloader)
+
+        cf_matrix = confusion_matrix(test_labels_model, test_predictions_model, labels=[*range(len(dataloader.dataset))])
+
+        fig, axes = plt.subplots(1, 1, figsize=(18, 6))
+
+        # Display confusion matrices
+        ConfusionMatrixDisplay(confusion_matrix=cf_matrix, display_labels=[*range(len(dataloader.dataset))]).plot(ax=axes[0])
+        axes[0].set_title('Class confusion matrix')
+
+        print(f'accuracy on classes: {np.trace(cf_matrix)/cf_matrix.sum()}')
+
+        fig.show()
+
 
 class CustomCNNExperiment():
     def __init__(self, dataset, model=None, lr=1e-2, k_folds=5, batch_size=512):
@@ -72,7 +112,7 @@ class CustomCNNExperiment():
         if model is None:
             raise ValueError("Model must be defined")
         
-        self.model = model
+        self.model = model.to(device)
 
         self.optimizer = None
         self.lossfunc = None
@@ -98,16 +138,18 @@ class CustomCNNExperiment():
             # Define data loaders for training and testing data in this fold
             trainloader = torch.utils.data.DataLoader(
                       self.dataset, 
-                      batch_size=self.batch_size, sampler=train_subsampler)
+                      batch_size=self.batch_size, sampler=train_subsampler, num_workers=1, pin_memory=True)
             testloader = torch.utils.data.DataLoader(
                       self.dataset,
-                      batch_size=self.batch_size, sampler=test_subsampler)
+                      batch_size=self.batch_size, sampler=test_subsampler, num_workers=1, pin_memory=True)
             
             reset_all_weights(self.model)
 
             self.loss, self.test_accuracy = train(model=self.model, optimizer=self.optimizer, trainloader=trainloader, testloader=testloader, lossfunc=self.lossfunc, epochs=epochs)
 
             display_losses_and_accuracies(self.loss, self.test_accuracy, epochs)
+
+            print_confusion_matrix(self.model, testloader)
 
 
 class CustomCNN(torch.nn.Module):
