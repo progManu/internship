@@ -1,0 +1,15 @@
+name: experiments-env
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - pytorch
+  - torchvision
+  - torchaudio
+  - pytorch-cuda=12.1
+  - scikit-learn
+  - matplotlib
+  - tqdm
+  - ipykernel
